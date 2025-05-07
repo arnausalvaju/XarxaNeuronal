@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <title>Reconeixement de Dígits</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Montserrat', sans-serif;
+      background-color: #7d63a6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #fff;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+
+    .canvas-box {
+      background-color: #f8f4e5;
+      padding: 20px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+    }
+
+    #canvas {
+      border: 2px solid #333;
+      border-radius: 8px;
+      background-color: #000;
+      cursor: crosshair;
+    }
+
+    .btn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: #f5b23c;
+      border: none;
+      border-radius: 6px;
+      color: #333;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .btn:hover {
+      background-color: #e5a12b;
+    }
+
+    #resultat {
+      margin-top: 25px;
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #f8f4e5;
+      min-height: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Reconeixement de Dígits amb Xarxa Neuronal</h1>
+
+  <div class="canvas-box">
+    <canvas id="canvas" width="280" height="280"></canvas>
+    <button class="btn" id="clear-button">Esborrar</button>
+  </div>
+
+  <div id="resultat">Dibuixa un número...</div>
+
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 15;
+    ctx.lineCap = "round";
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    document.getElementById("clear-button").addEventListener("click", function () {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      document.getElementById("resultat").innerHTML = "Dibuixa un número...";
+    });
+
+    let mousedown = false;
+    canvas.onmousedown = function (e) {
+      const pos = fixPosition(e, canvas);
+      mousedown = true;
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+
+    canvas.onmousemove = function (e) {
+      const pos = fixPosition(e, canvas);
+      if (mousedown) {
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      }
+    };
+
+    canvas.onmouseup = function () {
+      mousedown = false;
+
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCanvas.width = 28;
+      tempCanvas.height = 28;
+      tempCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, 28, 28);
+
+      let pixeles = [];
+      for (let y = 0; y < 28; y++) {
+        for (let x = 0; x < 28; x++) {
+          const imgData = tempCtx.getImageData(x, y, 1, 1);
+          const data = imgData.data;
+          let valor = data[0] / 255;
+          valor = (Math.round(valor * 100) / 100).toFixed(2);
+          pixeles.push(valor);
+        }
+      }
+
+      document.getElementById("resultat").innerHTML = "Analitzant...";
+
+      $.post("http://localhost:8000", { pixeles: pixeles.join(",") },
+        function (response) {
+          document.getElementById("resultat").innerHTML = response;
+        }
+      ).fail(function () {
+        document.getElementById("resultat").innerHTML = "Error: no s'ha pogut connectar al servidor.";
+      });
+    };
+
+    function fixPosition(e, gCanvasElement) {
+      let x, y;
+      if (e.pageX || e.pageY) {
+        x = e.pageX;
+        y = e.pageY;
+      } else {
+        x = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
+        y = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
+      }
+      x -= gCanvasElement.offsetLeft;
+      y -= gCanvasElement.offsetTop;
+      return { x: x, y: y };
+    }
+  </script>
+</body>
+</html>
